@@ -3,3 +3,5 @@ out/
 .vs/
 *.log
 __pycache__/
+build32/
+build64/

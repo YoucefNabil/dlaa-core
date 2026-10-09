@@ -6,12 +6,14 @@
 #   tools\build.ps1 -Config Debug
 #   tools\build.ps1 -Target smoke_test,rain_test
 #   tools\build.ps1 -Clangd            # also refresh build\compile_commands.json for clangd
+#   tools\build.ps1 -Arch Win32 -BuildDir build32   # 32-bit game (NGX in dlaa_ngx_host.exe)
 #
 # Each repo's tools\build.ps1 forwards here with -Root set to the repo.
 param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot),
   [string]$Config = 'Release',
   [string]$BuildDir = 'build',
+  [ValidateSet('x64', 'Win32')][string]$Arch = 'x64',
   [string[]]$Target = @(),
   [switch]$Clangd,
   [switch]$Reconfigure
@@ -49,7 +51,7 @@ function Import-VsDevEnv {
 
 # ---- configure (once; CMake re-runs itself when a CMakeLists changes) ----
 if ($Reconfigure -or -not (Test-Path (Join-Path $build 'CMakeCache.txt'))) {
-  $out = & cmake -S $Root -B $build -G 'Visual Studio 17 2022' -A x64 -Wno-dev -Wno-deprecated 2>&1 |
+  $out = & cmake -S $Root -B $build -G 'Visual Studio 17 2022' -A $Arch -Wno-dev -Wno-deprecated 2>&1 |
     ForEach-Object { "$_" }
   if ($LASTEXITCODE -ne 0) {
     Show-Problems $out

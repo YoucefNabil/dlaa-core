@@ -7,10 +7,24 @@ cmake_minimum_required(VERSION 3.21)
 #   add_library(my_dlaa SHARED src/game.cpp ...)
 #   dlaa_core_add_mod(my_dlaa SHADERS mv)
 # Built on its own it builds the template mod and the core tests.
+#
+# x86 (-A Win32, for 32-bit games): NGX is x64 only, so the x86 core runs DLSS
+# in a 64-bit helper process instead (ngx_remote.cpp, same ngx.h API). Build
+# the helper, dlaa_ngx_host.exe, from an x64 configure of the same project and
+# ship it next to the proxy and nvngx_dlss.dll.
 project(dlaa_core LANGUAGES C CXX ASM_MASM)
 
-if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-  message(FATAL_ERROR "dlaa_core is x64 only: configure with -A x64")
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(DLAA_CORE_X86 OFF CACHE INTERNAL "")
+else()
+  set(DLAA_CORE_X86 ON CACHE INTERNAL "")
+endif()
+if(DLAA_CORE_X86)
+  set(DLAA_CORE_NGX_SRC src/ngx_remote.cpp)
+  set(DLAA_CORE_STUBS_SRC export_stubs_x86.asm CACHE INTERNAL "")
+else()
+  set(DLAA_CORE_NGX_SRC src/ngx.cpp)
+  set(DLAA_CORE_STUBS_SRC export_stubs.asm CACHE INTERNAL "")
 endif()
 
 set(DLAA_CORE_ROOT ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "")
@@ -79,7 +93,7 @@ add_library(dlaa_core STATIC
   src/hooks.cpp
   src/log.cpp
   src/mip_bias.cpp
-  src/ngx.cpp
+  ${DLAA_CORE_NGX_SRC}
   src/shader_registry.cpp
   src/vtable_indices.c
 )
@@ -89,8 +103,17 @@ target_include_directories(dlaa_core PUBLIC include PRIVATE src)
 target_include_directories(dlaa_core SYSTEM PUBLIC ${DLSS_SDK_DIR}/include)
 # SDK headers use nameless unions in their C-mode COM declarations.
 set_source_files_properties(src/vtable_indices.c PROPERTIES COMPILE_OPTIONS /wd4201)
-target_link_libraries(dlaa_core PUBLIC minhook dxguid
-  ${NGX_LIB_DIR}/nvsdk_ngx_s$<$<CONFIG:Debug>:_dbg>.lib)
+target_link_libraries(dlaa_core PUBLIC minhook dxguid)
+if(NOT DLAA_CORE_X86)
+  target_link_libraries(dlaa_core PUBLIC ${NGX_LIB_DIR}/nvsdk_ngx_s$<$<CONFIG:Debug>:_dbg>.lib)
+
+  # The 64-bit NGX helper of x86 mods (see ngx_remote.h). Built on request only:
+  # cmake --build <x64 build> --target dlaa_ngx_host
+  add_executable(dlaa_ngx_host WIN32 EXCLUDE_FROM_ALL src/ngx_host.cpp)
+  dlaa_core_target_defaults(dlaa_ngx_host)
+  target_include_directories(dlaa_ngx_host PRIVATE src)
+  target_link_libraries(dlaa_ngx_host PRIVATE dlaa_core d3d11 dxgi shell32)
+endif()
 
 # Turns a SHARED library of game sources (one of them defines dlaa_core::game)
 # into the d3d11.dll proxy. SHADERS: header stems from dlaa_core_compile_shader.
@@ -99,7 +122,7 @@ function(dlaa_core_add_mod target)
   cmake_parse_arguments(ARG "NO_DLSS_RUNTIME" "" "SHADERS" ${ARGN})
   target_sources(${target} PRIVATE
     ${DLAA_CORE_ROOT}/src/dllmain.cpp
-    ${DLAA_CORE_ROOT}/src/export_stubs.asm
+    ${DLAA_CORE_ROOT}/src/${DLAA_CORE_STUBS_SRC}
     ${DLAA_CORE_ROOT}/src/exports.def)
   set_target_properties(${target} PROPERTIES OUTPUT_NAME "d3d11")
   dlaa_core_target_defaults(${target})
@@ -123,7 +146,8 @@ if(PROJECT_IS_TOP_LEVEL)
   add_executable(smoke_test tests/smoke_test.cpp)
   target_link_libraries(smoke_test PRIVATE dxgi d3dcompiler)
 
-  # NGX init + one DLAA feature evaluated on synthetic textures.
+  # NGX init + one DLAA feature evaluated on synthetic textures. On x86 it goes
+  # through the helper: put an x64 dlaa_ngx_host.exe next to it.
   add_executable(ngx_test tests/ngx_test.cpp)
   dlaa_core_target_defaults(ngx_test)
   target_link_libraries(ngx_test PRIVATE dlaa_core d3d11)

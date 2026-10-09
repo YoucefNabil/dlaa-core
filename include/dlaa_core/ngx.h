@@ -2,6 +2,8 @@
 // NVIDIA NGX (DLSS SDK) for DLAA on D3D11: one Init per device, then any
 // number of DLAA features (e.g. a second one for a separate highlight layer).
 // nvngx_dlss.dll is loaded from ModuleDir(). Immediate context only.
+// x86 builds run NGX in dlaa_ngx_host.exe (next to the proxy) with the same
+// API; see ngx_remote_protocol.h. Params() is null there.
 
 #include <d3d11.h>
 
@@ -55,10 +57,11 @@ class Dlaa {
   // NVSDK_NGX_Result (0x1 = success).
   int Evaluate(ID3D11DeviceContext* ctx, const EvalInputs& in);
   void Release();
-  bool Created() const { return handle_ != nullptr; }
+  bool Created() const { return handle_ != nullptr || slot_ >= 0; }
 
  private:
-  NVSDK_NGX_Handle* handle_ = nullptr;
+  NVSDK_NGX_Handle* handle_ = nullptr;  // x64: the NGX feature
+  int slot_ = -1;                        // x86: the feature's slot in dlaa_ngx_host.exe
   FeatureDesc desc_;
 };
 

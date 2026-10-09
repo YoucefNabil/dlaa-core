@@ -63,6 +63,9 @@ struct Callbacks {
                              const FLOAT factor[4], UINT mask) = nullptr;
   void (*on_set_depth_stencil_state)(ID3D11DeviceContext* ctx, ID3D11DepthStencilState* state,
                                      UINT ref) = nullptr;
+  // ExecuteCommandList / FinishCommandList with RestoreContextState=FALSE leave
+  // the context in its default state, like ClearState. After the real call.
+  void (*on_command_list_reset)(ID3D11DeviceContext* ctx) = nullptr;
 
   // Draws and dispatches, every context. The frame dump records the call first.
   uint32_t (*before_draw)(ID3D11DeviceContext* ctx, const DrawArgs& args) = nullptr;

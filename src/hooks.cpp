@@ -388,11 +388,13 @@ struct ContextHooks {
                                                    ID3D11CommandList* list, BOOL restore) {
     if (frame_dump::Active()) frame_dump::RecordExecuteCommandList(self, list);
     o_ExecuteCommandList(self, list, restore);
+    if (!restore && g_cb.on_command_list_reset) g_cb.on_command_list_reset(self);
   }
 
   static HRESULT STDMETHODCALLTYPE FinishCommandList(ID3D11DeviceContext* self, BOOL restore,
                                                      ID3D11CommandList** list) {
     const HRESULT hr = o_FinishCommandList(self, restore, list);
+    if (!restore && g_cb.on_command_list_reset) g_cb.on_command_list_reset(self);
     if (SUCCEEDED(hr) && list && *list && frame_dump::Active())
       frame_dump::RecordFinishCommandList(self, *list);
     return hr;

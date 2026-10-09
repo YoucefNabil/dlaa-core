@@ -66,6 +66,13 @@ struct Callbacks {
   // ExecuteCommandList / FinishCommandList with RestoreContextState=FALSE leave
   // the context in its default state, like ClearState. After the real call.
   void (*on_command_list_reset)(ID3D11DeviceContext* ctx) = nullptr;
+  // Games that draw only on deferred contexts: mark a list while it is recorded
+  // (before_draw on the deferred context), learn which list it became here
+  // (after a successful FinishCommandList on `ctx`, the deferred context), and
+  // run work on the immediate context before that list executes.
+  void (*on_finish_command_list)(ID3D11DeviceContext* ctx, ID3D11CommandList* list) = nullptr;
+  void (*before_execute_command_list)(ID3D11DeviceContext* ctx,
+                                      ID3D11CommandList* list) = nullptr;
 
   // Draws and dispatches, every context. The frame dump records the call first.
   uint32_t (*before_draw)(ID3D11DeviceContext* ctx, const DrawArgs& args) = nullptr;

@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "dlaa_core/d3d_util.h"
 #include "dlaa_core/log.h"
 #include "dlaa_core/shader_registry.h"
 
@@ -228,18 +229,6 @@ std::string CbList(ID3D11DeviceContext* ctx, Stage stage) {
     b[i]->Release();
   }
   return s + "]";
-}
-
-// Byte size if r is a constant buffer, else 0.
-UINT ConstantBufferBytes(ID3D11Resource* r) {
-  if (!r) return 0;
-  D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
-  r->GetType(&dim);
-  if (dim != D3D11_RESOURCE_DIMENSION_BUFFER) return 0;
-  D3D11_BUFFER_DESC d;
-  static_cast<ID3D11Buffer*>(r)->GetDesc(&d);
-  if (!(d.BindFlags & D3D11_BIND_CONSTANT_BUFFER)) return 0;
-  return d.ByteWidth;
 }
 
 // Appends one upload to the .cb blob; returns its record id.

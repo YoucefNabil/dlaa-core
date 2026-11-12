@@ -41,6 +41,11 @@ class ComputeState {
   ComputeState(const ComputeState&) = delete;
   ComputeState& operator=(const ComputeState&) = delete;
 
+  // What the game had bound (not owned by the caller; valid while this lives).
+  ID3D11ShaderResourceView* Srv(UINT slot) const { return srvs_[slot]; }
+  ID3D11Buffer* Cb(UINT slot) const { return cbs_[slot]; }
+  ID3D11UnorderedAccessView* Uav(UINT slot) const { return uavs_[slot]; }
+
  private:
   template <typename T>
   static void Release(T* p) {

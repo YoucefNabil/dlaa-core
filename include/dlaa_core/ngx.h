@@ -42,6 +42,9 @@ struct EvalInputs {
   bool reset = false;
 };
 
+// Whether a Dlaa::Evaluate result is a success (NVSDK_NGX_Result_Success).
+inline bool Succeeded(int result) { return result == 1; }
+
 class Dlaa {
  public:
   Dlaa() = default;

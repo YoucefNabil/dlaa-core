@@ -4,7 +4,7 @@
 // constant buffers). The DLAA pass itself is game specific: see NIER /
 // sunsetoverdrive / batman arkham knight src/dlss/dlaa.cpp for the three
 // patterns (scene camera from a cbuffer, jitter from a game hook, shader patch)
-// and dlaa_core/ngx.h + compute_state.h for the parts they share.
+// and dlaa_core/ngx.h, compute_state.h, d3d_util.h + math.h for the parts they share.
 #include <windows.h>
 
 #include <atomic>

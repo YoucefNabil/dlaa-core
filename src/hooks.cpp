@@ -49,7 +49,10 @@ bool HookSlot(void* object, size_t slot, Fn detour, Fn* original, const char* na
   // Enabling is queued and applied in one batch (ApplyQueued): each apply
   // suspends every thread in the process, so doing it per hook stalls startup.
   if (status == MH_OK) status = MH_QueueEnableHook(target);
-  Log("hook %-36s slot %2zu at %p: %s", name, slot, target, MH_StatusToString(status));
+  // Not an error: that code already has the hook (see above).
+  Log("hook %-36s slot %2zu at %p: %s", name, slot, target,
+      status == MH_ERROR_ALREADY_CREATED ? "shares code that is already hooked"
+                                         : MH_StatusToString(status));
   return status == MH_OK;
 }
 

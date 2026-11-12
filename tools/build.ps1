@@ -42,7 +42,8 @@ function Import-VsDevEnv {
   $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
   $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
   if (-not $vs) { throw 'Visual Studio with the C++ x64 tools not found' }
-  $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat'
+  # Match the game's bitness: a 32-bit repo's CMakeLists only adds its own sources on x86.
+  $vcvars = Join-Path $vs ('VC\Auxiliary\Build\' + $(if ($Arch -eq 'Win32') { 'vcvars32.bat' } else { 'vcvars64.bat' }))
   $env:PATH = "$(Split-Path $vswhere);$env:PATH"  # vcvars calls vswhere itself
   foreach ($line in (& cmd.exe /c "`"$vcvars`" >nul 2>nul && set")) {
     if ($line -match '^([^=]+)=(.*)$') { Set-Item -Path "env:$($Matches[1])" -Value $Matches[2] }
@@ -77,8 +78,22 @@ if ($code -ne 0) {
 }
 
 # ---- clangd compile database (Ninja + cl.exe, generated shader headers built) ----
-if ($Clangd) {
+# Also refreshed on a full build when it's missing or older than a CMakeLists.txt, so clangd
+# always has one without passing -Clangd.
+$dbFile = Join-Path $build 'compile_commands.json'
+$lists = @(Join-Path $Root 'CMakeLists.txt') + @(Join-Path $PSScriptRoot '..\CMakeLists.txt') +
+  @(Get-ChildItem $Root -Directory -Exclude 'build*', 'external', '.*' |
+    ForEach-Object { Join-Path $_.FullName 'CMakeLists.txt' })
+$dbTime = if (Test-Path $dbFile) { (Get-Item $dbFile).LastWriteTime } else { [datetime]::MinValue }
+$stale = @($lists | Where-Object { (Test-Path $_) -and (Get-Item $_).LastWriteTime -gt $dbTime }).Count -gt 0
+if ($Clangd -or ($stale -and -not $Target.Count)) {
   $db = Join-Path $build 'clangd'
+  # A cache made with the other bitness's cl.exe would be wiped mid-configure, dropping the -D options.
+  $cache = Join-Path $db 'CMakeCache.txt'
+  $want = if ($Arch -eq 'Win32') { '/x86/cl.exe' } else { '/x64/cl.exe' }
+  if ((Test-Path $cache) -and -not (Select-String -Path $cache -SimpleMatch "$want" -Quiet)) {
+    Remove-Item $cache, (Join-Path $db 'CMakeFiles') -Recurse -Force -ErrorAction SilentlyContinue
+  }
   Import-VsDevEnv
   $cfg = & cmake -S $Root -B $db -G Ninja "-DCMAKE_BUILD_TYPE=$Config" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
     -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -Wno-dev -Wno-deprecated 2>&1 | ForEach-Object { "$_" }
